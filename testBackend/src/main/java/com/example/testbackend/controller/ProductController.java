@@ -1,9 +1,11 @@
 package com.example.testbackend.controller;
 
+import com.example.testbackend.dto.ProductDto;
 import com.example.testbackend.model.Product;
 import com.example.testbackend.model.ProductType;
 import com.example.testbackend.service.IProductService;
 import com.example.testbackend.service.IProductTypeService;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -11,8 +13,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
+import javax.validation.Valid;
 import java.util.List;
 
 @RestController
@@ -35,19 +39,57 @@ public class ProductController {
         }
         return new ResponseEntity<>(productPage, HttpStatus.OK);
     }
+
     @GetMapping("/productTypes")
-    public  ResponseEntity<List<ProductType>> showProductTypes() {
-       List<ProductType> productTypeList = productTypeService.getAll();
+    public ResponseEntity<List<ProductType>> showProductTypes() {
+        List<ProductType> productTypeList = productTypeService.getAll();
         if (productTypeList.isEmpty()) {
             return new ResponseEntity<>(HttpStatus.NO_CONTENT);
         }
-        return new ResponseEntity<>(productTypeList,HttpStatus.OK);
+        return new ResponseEntity<>(productTypeList, HttpStatus.OK);
     }
 
-    @PostMapping("")
-    public  ResponseEntity<Product> addProduct (@RequestBody Product product) {
-        System.out.println(product.getProductType().getNameType());
-        productService.addProduct(product);
-        return new ResponseEntity<>(HttpStatus.OK);
+    @PostMapping("/create")
+    public ResponseEntity<?> addProduct(@Valid @RequestBody ProductDto productDto, BindingResult bindingResult) {
+        Product product = new Product();
+        new ProductDto().validate(productDto, bindingResult);
+        if (bindingResult.hasErrors()) {
+            return new ResponseEntity<>(productDto, HttpStatus.NO_CONTENT);
+        }
+        BeanUtils.copyProperties(productDto, product);
+        boolean check = productService.addProduct(product);
+        if (check) {
+            return new ResponseEntity<>(HttpStatus.OK);
+        }
+        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
+
+    @PutMapping("/update/{id}")
+    public ResponseEntity<?> updateProduct(@PathVariable Integer id, @Valid @RequestBody ProductDto productDto, BindingResult bindingResult) {
+        if (productService.getById(id) == null) {
+            return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        } else {
+            Product product = new Product();
+            new ProductDto().validate(productDto, bindingResult);
+            if (bindingResult.hasErrors()) {
+                return new ResponseEntity<>(productDto, HttpStatus.NO_CONTENT);
+            }
+            BeanUtils.copyProperties(productDto, product);
+            boolean check = productService.updateProduct(product.getId(), product);
+            if (check) {
+                return new ResponseEntity<>(HttpStatus.OK);
+            }
+            return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        }
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteProduct(@PathVariable Integer id) {
+        boolean check = productService.deleteProduct(id);
+        if (check) {
+            return new ResponseEntity<>(HttpStatus.OK);
+        }
+        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+    }
+
 }
